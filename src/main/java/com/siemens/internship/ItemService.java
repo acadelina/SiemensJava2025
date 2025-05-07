@@ -1,21 +1,24 @@
 package com.siemens.internship;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Service
 public class ItemService {
     @Autowired
     private ItemRepository itemRepository;
-    private static ExecutorService executor = Executors.newFixedThreadPool(10);
-    private List<Item> processedItems = new ArrayList<>();
-    private int processedCount = 0;
+    private static final ExecutorService executor = Executors.newFixedThreadPool(10);
+    private static final Logger logger = LogManager.getLogger(ItemService.class);
+
 
 
     public List<Item> findAll() {
@@ -54,33 +57,42 @@ public class ItemService {
      * Consider the interaction between Spring's @Async and CompletableFuture
      */
     @Async
-    public List<Item> processItemsAsync() {
+    public CompletableFuture<List<Item>> processItemsAsync() {
 
         List<Long> itemIds = itemRepository.findAllIds();
 
-        for (Long id : itemIds) {
-            CompletableFuture.runAsync(() -> {
-                try {
-                    Thread.sleep(100);
-
-                    Item item = itemRepository.findById(id).orElse(null);
-                    if (item == null) {
-                        return;
+        List<CompletableFuture<Item>> futures = itemIds.stream()
+                .map(id->CompletableFuture.supplyAsync(()->{
+                    try{
+                        Thread.sleep(100);
+                        return itemRepository.findById(id).orElse(null);
+                    }catch(InterruptedException e){
+                        Thread.currentThread().interrupt();
+                        logger.error(e);
+                        throw new CompletionException(e);
                     }
 
-                    processedCount++;
+                },executor).thenApply(item->{
+                    if(item!=null){
+                        try {
+                            item.setStatus("PROCESSED");
+                            return itemRepository.save(item);
+                        }
+                        catch (Exception e) {
+                            logger.error("Error saving item: ",e);
+                           return null;
+                        }
+                    }
+                    return null;
+                })).toList();
 
-                    item.setStatus("PROCESSED");
-                    itemRepository.save(item);
-                    processedItems.add(item);
+        CompletableFuture<Void> allDone = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
 
-                } catch (InterruptedException e) {
-                    System.out.println("Error: " + e.getMessage());
-                }
-            }, executor);
-        }
+        return allDone.thenApply(f->futures.stream()
+                .map(CompletableFuture::join)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList()));
 
-        return processedItems;
     }
 
 }
