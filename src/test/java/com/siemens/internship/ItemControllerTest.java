@@ -31,12 +31,13 @@ public class ItemControllerTest {
     @MockBean
     private ItemService itemService;
 
-    @InjectMocks
+
     private ItemController itemController;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        itemController = new ItemController(itemService);
     }
 
     @Test
@@ -72,7 +73,6 @@ public class ItemControllerTest {
         var response=itemController.createItem(item);
         assertEquals(HttpStatus.CREATED,response.getStatusCode());
         assertEquals(item,response.getBody());
-
     }
 
     @Test

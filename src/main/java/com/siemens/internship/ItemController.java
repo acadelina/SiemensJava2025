@@ -13,19 +13,25 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/api/items")
 public class ItemController {
 
-    @Autowired
-    private ItemService itemService;
+    private final ItemService itemService;
 
+    public ItemController(ItemService itemService) {
+        this.itemService = itemService;
+    }
+
+    //gets all items from db
     @GetMapping
     public ResponseEntity<List<Item>> getAllItems() {
         return new ResponseEntity<>(itemService.findAll(), HttpStatus.OK);
     }
 
+    //creates an item, validates input using @Valid
     @PostMapping
     public ResponseEntity<Item> createItem(@Valid @RequestBody Item item) {
         return new ResponseEntity<>(itemService.save(item), HttpStatus.CREATED);
     }
 
+    //finds an item by id
     @GetMapping("/{id}")
     public ResponseEntity<Item> getItemById(@PathVariable Long id) {
         return itemService.findById(id)
@@ -33,8 +39,9 @@ public class ItemController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    //updates an item by id, validates input using @Valid
     @PutMapping("/{id}")
-    public ResponseEntity<Item> updateItem(@PathVariable Long id, @RequestBody Item item) {
+    public ResponseEntity<Item> updateItem(@PathVariable Long id,@Valid @RequestBody Item item) {
         if (itemService.findById(id).isPresent()) {
             item.setId(id);
             return new ResponseEntity<>(itemService.save(item), HttpStatus.OK);
@@ -43,6 +50,7 @@ public class ItemController {
         }
     }
 
+    //deletes an item by id
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteItem(@PathVariable Long id) {
         if (itemService.findById(id).isPresent()) {
@@ -53,6 +61,7 @@ public class ItemController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
+    //async process items
     @GetMapping("/process")
     public CompletableFuture<ResponseEntity<List<Item>>> processItems() {
         return itemService.processItemsAsync()

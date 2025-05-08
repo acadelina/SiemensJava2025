@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -38,6 +39,10 @@ public class ItemServiceTest {
         when(itemRepository.findAll()).thenReturn(items);
         result=itemService.findAll();
         assertEquals(0,result.size());
+
+        //in case of exception
+        when(itemRepository.findAll()).thenThrow(new RuntimeException("DB error"));
+        assertThrows(RuntimeException.class, () -> itemService.findAll());
     }
 
     @Test
@@ -53,6 +58,9 @@ public class ItemServiceTest {
         //item not found
         result=itemService.findById(2L);
         assertFalse(result.isPresent());
+
+        when(itemRepository.findById(anyLong())).thenThrow(new RuntimeException("DB error"));
+        assertThrows(RuntimeException.class, () -> itemService.findById(1L));
     }
 
     @Test
@@ -60,6 +68,7 @@ public class ItemServiceTest {
         Item item=new Item(1L,"name","desc","NEW","test@gmail.com");
         Item item1=new Item(null,"name","desc","NEW","test@gmail.com");
         Item item2=new Item(null,null,null,null,null);
+        Item item3=new Item(2L,"name","desc","NEW","test@gmail.com");
 
         when(itemRepository.save(item1)).thenReturn(item);
         Item savedItem=itemService.save(item1);
@@ -69,6 +78,13 @@ public class ItemServiceTest {
         savedItem=itemService.save(item2);
         assertNull(savedItem.getId());
         assertNull(savedItem.getName());
+
+        when(itemRepository.save(item3)).thenReturn(item3);
+        savedItem=itemService.save(item3);
+        assertEquals(item3,savedItem);
+
+        when(itemRepository.save(item)).thenThrow(new RuntimeException("DB error"));
+        assertThrows(RuntimeException.class, () -> itemService.save(item));
     }
 
 
@@ -81,6 +97,9 @@ public class ItemServiceTest {
         //test when id doesn't exist
         doNothing().when(itemRepository).deleteById(999L);
         assertDoesNotThrow(() -> itemService.deleteById(999L));
+
+        doThrow(new RuntimeException("DB error")).when(itemRepository).deleteById(1L);
+        assertThrows(RuntimeException.class, () -> itemService.deleteById(1L));
     }
 
     @Test
@@ -105,6 +124,7 @@ public class ItemServiceTest {
         assertEquals("PROCESSED", result.get(0).getStatus());
         assertEquals("PROCESSED", result.get(1).getStatus());
         verify(itemRepository, times(2)).save(any(Item.class));
+
     }
 
     @Test
