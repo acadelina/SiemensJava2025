@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,11 +14,8 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/api/items")
 public class ItemController {
 
-    private final ItemService itemService;
-
-    public ItemController(ItemService itemService) {
-        this.itemService = itemService;
-    }
+    @Autowired
+    private ItemService itemService;
 
     //gets all items from db
     @GetMapping
@@ -27,7 +25,10 @@ public class ItemController {
 
     //creates an item, validates input using @Valid
     @PostMapping
-    public ResponseEntity<Item> createItem(@Valid @RequestBody Item item) {
+    public ResponseEntity<Item> createItem(@Valid @RequestBody Item item, BindingResult result) {
+        if (result.hasErrors()) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
         return new ResponseEntity<>(itemService.save(item), HttpStatus.CREATED);
     }
 
@@ -41,7 +42,10 @@ public class ItemController {
 
     //updates an item by id, validates input using @Valid
     @PutMapping("/{id}")
-    public ResponseEntity<Item> updateItem(@PathVariable Long id,@Valid @RequestBody Item item) {
+    public ResponseEntity<Item> updateItem(@PathVariable Long id,@Valid @RequestBody Item item, BindingResult result) {
+        if(result.hasErrors()) {
+            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+        }
         if (itemService.findById(id).isPresent()) {
             item.setId(id);
             return new ResponseEntity<>(itemService.save(item), HttpStatus.OK);

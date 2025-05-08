@@ -24,39 +24,19 @@ public class ItemService {
 
 
     public List<Item> findAll() {
-        try{
-             return itemRepository.findAll();
-        } catch(DataAccessException e){
-            logger.error("Error finding all items: ",e);
-            throw new RuntimeException(e);
-        }
+        return itemRepository.findAll();
     }
 
     public Optional<Item> findById(Long id) {
-        try{
-            return itemRepository.findById(id);
-        } catch(DataAccessException e){
-            logger.error("Error finding item by id: ",e);
-            throw new RuntimeException(e);
-        }
+        return itemRepository.findById(id);
     }
 
     public Item save(Item item) {
-        try{
-            return itemRepository.save(item);
-        } catch(DataAccessException e){
-            logger.error("Error saving item: ",e);
-            throw new RuntimeException(e);
-        }
+        return itemRepository.save(item);
     }
 
     public void deleteById(Long id) {
-        try{
-            itemRepository.deleteById(id);
-        } catch(DataAccessException e){
-            logger.error("Error deleting item: ",e);
-            throw new RuntimeException(e);
-        }
+        itemRepository.deleteById(id);
     }
 
 

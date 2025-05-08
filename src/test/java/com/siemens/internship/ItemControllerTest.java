@@ -1,4 +1,6 @@
 package com.siemens.internship;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
@@ -8,18 +10,19 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+
+
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 import static org.hamcrest.Matchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
@@ -31,13 +34,16 @@ public class ItemControllerTest {
     @MockBean
     private ItemService itemService;
 
+    @Autowired
+    private ObjectMapper objectMapper;
 
+    @InjectMocks
     private ItemController itemController;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        itemController = new ItemController(itemService);
+
     }
 
     @Test
@@ -67,16 +73,27 @@ public class ItemControllerTest {
     }
 
     @Test
-    void testCreateItem() {
+    void testCreateItem() throws Exception {
         Item item = new Item(1L, "Item", "desc", "NEW", "email@test.com");
-        when(itemService.save(item)).thenReturn(item);
-        var response=itemController.createItem(item);
-        assertEquals(HttpStatus.CREATED,response.getStatusCode());
-        assertEquals(item,response.getBody());
+
+        when(itemService.save(any(Item.class))).thenReturn(item);
+        mockMvc.perform(post("/api/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(item)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").exists())
+                .andExpect(jsonPath("$.name",is("Item")));
+
+        //invalid item
+        item=new Item(null, "Item", "desc", "NEW", "emaicom");
+        mockMvc.perform(post("/api/items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(item)))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
-    void testUpdateItem() {
+    void testUpdateItem() throws Exception {
         Item existing = new Item(1L, "Item", "desc", "NEW", "email@test.com");
         Item update = new Item(null, "new", "desc", "PROCESSED", "new@email.com");
 
@@ -84,15 +101,19 @@ public class ItemControllerTest {
         when(itemService.findById(1L)).thenReturn(Optional.of(existing));
         when(itemService.save(any())).thenReturn(update);
 
-        ResponseEntity<Item> response = itemController.updateItem(1L, update);
-        assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals("new", response.getBody().getName());
+        mockMvc.perform(put("/api/items/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("new"));
 
         //for item that doesn't exist
         when(itemService.findById(5L)).thenReturn(Optional.empty());
 
-        response = itemController.updateItem(5L, new Item());
-        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        mockMvc.perform(put("/api/items/5")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new Item())))
+                .andExpect(status().isNotFound());
     }
 
     @Test
